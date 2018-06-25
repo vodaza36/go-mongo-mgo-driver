@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"runtime/trace"
 	"sync"
 	"time"
 
@@ -34,6 +36,15 @@ func findUserByID(session *mgo.Session, userID string) (*User, error) {
 }
 
 func main() {
+	// start tracing
+	f, err := os.Create("trace.out")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	trace.Start(f)
+	defer trace.Stop()
+
 	// create a Mongo DB connection
 	session, err := mgo.Dial("localhost:27017")
 	if err != nil {
@@ -64,13 +75,13 @@ func main() {
 	start := time.Now()
 
 	var waitGroup sync.WaitGroup
-	const numUsers = 5000
+	const numUsers = 100
 	waitGroup.Add(numUsers)
 
 	// insert numUsers new user records
 	for index := 0; index < numUsers; index++ {
 		newUser := User{ID: fmt.Sprintf("xhocht%d", index), Name: "Test", Email: fmt.Sprintf("test%d@hochbichler.at", index)}
-		insertUser(session, &newUser, &waitGroup)
+		go insertUser(session, &newUser, &waitGroup)
 	}
 
 	waitGroup.Wait()
